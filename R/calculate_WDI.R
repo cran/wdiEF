@@ -69,7 +69,6 @@ calculate_WDI <- function(FVC_path, TS_TA_path, output_path, n_intervals = 20, p
   }
 
   # Check if rasters have the same CRS and extent
-
   if (!terra::same.crs(FVC, TS_TA)) {
     warning("Different CRS detected. The rasters will be reprojected to align.")
     TS_TA <- terra::project(TS_TA, terra::crs(FVC))
@@ -84,6 +83,12 @@ calculate_WDI <- function(FVC_path, TS_TA_path, output_path, n_intervals = 20, p
   FVC[FVC > 1] <- 1
   FVC[FVC < 0] <- 0
 
+  # Check if the maximum FVC is less than 1 and normalize FVC so that its maximum becomes 1
+  max_FVC <- max(terra::values(FVC), na.rm = TRUE)
+  if (max_FVC < 1) {
+    warning(paste("Maximum FVC is", max_FVC, "which is less than 1. Normalizing FVC..."))
+    FVC <- FVC / max_FVC
+  }
 
   # Step 2: Convert rasters to vectors
   values_FVC <- terra::values(FVC)
@@ -96,7 +101,7 @@ calculate_WDI <- function(FVC_path, TS_TA_path, output_path, n_intervals = 20, p
 
   for (i in 1:n_intervals) {
 
-     idx <- which(cut_fvc == levels(cut_fvc)[i])
+    idx <- which(cut_fvc == levels(cut_fvc)[i])
     table1 <- as.data.frame(table(values_TS_TA[idx])) %>%
       dplyr::rename(TS_TA = Var1)
     table1$TS_TA <- as.numeric(levels(table1$TS_TA))
@@ -107,14 +112,12 @@ calculate_WDI <- function(FVC_path, TS_TA_path, output_path, n_intervals = 20, p
     tab <- dplyr::bind_cols(table1, pourcentages_df)
 
     mean_lower <- tab %>%
-      dplyr::filter(tab$Pourcentage <= percentile) %>%
+      dplyr::filter(Pourcentage <= percentile) %>%
       dplyr::summarise(mean_lower = weighted.mean(TS_TA, Freq, na.rm = TRUE))
 
-
     mean_upper <- tab %>%
-      dplyr::filter(tab$Pourcentage >= (1 - percentile)) %>%
+      dplyr::filter(Pourcentage >= (1 - percentile)) %>%
       dplyr::summarise(mean_upper = weighted.mean(TS_TA, Freq, na.rm = TRUE))
-
 
     R1[ligne, "Interval"] <- i
     R1[ligne, "Ts_wet"] <- mean_lower
@@ -128,8 +131,8 @@ calculate_WDI <- function(FVC_path, TS_TA_path, output_path, n_intervals = 20, p
     dplyr::mutate(FVC = seq(0.025, 0.975, length.out = n_intervals))
 
   # Step 4: Deletion of the values from the first 2 rows of the table tab_wet_dry_fvc when FVC is close to 0 (no vegetation)
-  tab_wet_dry_fvc[1,c(2,3)]<-NA
-  tab_wet_dry_fvc[2,c(2,3)]<-NA
+  tab_wet_dry_fvc[1, c(2, 3)] <- NA
+  tab_wet_dry_fvc[2, c(2, 3)] <- NA
   tab_wet_dry_fvc
 
   # Step 5: Fit regression models for wet and dry edges using stats::lm
@@ -146,7 +149,6 @@ calculate_WDI <- function(FVC_path, TS_TA_path, output_path, n_intervals = 20, p
   WDI <- (TS_TA - ((a_wet * FVC) + b_wet)) /
     (((a_dry * FVC) + b_dry) - ((a_wet * FVC) + b_wet))
 
-
   # Clip WDI values to [0, 1]
   WDI[WDI > 1] <- 1
   WDI[WDI < 0] <- 0
@@ -157,11 +159,7 @@ calculate_WDI <- function(FVC_path, TS_TA_path, output_path, n_intervals = 20, p
   terra::writeRaster(WDI, output_path, overwrite = TRUE)
 
   # Plot the result
-
-  terra::plot(WDI,main = "WDI (Water Deficit Index)")
+  terra::plot(WDI, main = "WDI (Water Deficit Index)")
 
   return(WDI)
 }
-
-
-

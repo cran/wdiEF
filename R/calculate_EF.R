@@ -48,27 +48,26 @@
 #' print(output_path)
 #'
 #' @export
-calculate_EF <- function(FVC_path, TS_TA_path,output_path, n_intervals = 20, percentile = 0.01) {
+calculate_EF <- function(FVC_path, TS_TA_path, output_path, n_intervals = 20, percentile = 0.01) {
 
-    # If paths are provided, load rasters
-    if (inherits(FVC_path, "character") && file.exists(FVC_path)) {
-      FVC <- rast(FVC_path)
-    } else if (inherits(FVC_path, "SpatRaster")) {
-      FVC <- FVC_path  # already loaded raster
-    } else {
-      stop("Invalid FVC input.")
-    }
+  # If paths are provided, load rasters
+  if (inherits(FVC_path, "character") && file.exists(FVC_path)) {
+    FVC <- rast(FVC_path)
+  } else if (inherits(FVC_path, "SpatRaster")) {
+    FVC <- FVC_path  # already loaded raster
+  } else {
+    stop("Invalid FVC input.")
+  }
 
-    if (inherits(TS_TA_path, "character") && file.exists(TS_TA_path)) {
-      TS_TA <- rast(TS_TA_path)
-    } else if (inherits(TS_TA_path, "SpatRaster")) {
-      TS_TA <- TS_TA_path  # already loaded raster
-    } else {
-      stop("Invalid TS_TA input.")
-    }
+  if (inherits(TS_TA_path, "character") && file.exists(TS_TA_path)) {
+    TS_TA <- rast(TS_TA_path)
+  } else if (inherits(TS_TA_path, "SpatRaster")) {
+    TS_TA <- TS_TA_path  # already loaded raster
+  } else {
+    stop("Invalid TS_TA input.")
+  }
 
-    # Check if rasters have the same CRS and extent
-
+  # Check if rasters have the same CRS and extent
   if (!terra::same.crs(FVC, TS_TA)) {
     warning("Different CRS detected. The rasters will be reprojected to align.")
     TS_TA <- terra::project(TS_TA, terra::crs(FVC))
@@ -83,6 +82,13 @@ calculate_EF <- function(FVC_path, TS_TA_path,output_path, n_intervals = 20, per
   FVC[FVC > 1] <- 1
   FVC[FVC < 0] <- 0
 
+  # Check if the maximum FVC is less than 1 and normalize FVC so that its maximum becomes 1
+  max_FVC <- max(terra::values(FVC), na.rm = TRUE)
+  if (max_FVC < 1) {
+    warning(paste("Maximum FVC is", max_FVC, "which is less than 1. Normalizing FVC..."))
+    FVC <- FVC / max_FVC
+  }
+
   # Step 2: Convert rasters to vectors
   values_FVC <- terra::values(FVC)
   values_TS_TA <- terra::values(TS_TA)
@@ -94,7 +100,7 @@ calculate_EF <- function(FVC_path, TS_TA_path,output_path, n_intervals = 20, per
 
   for (i in 1:n_intervals) {
 
-     idx <- which(cut_fvc == levels(cut_fvc)[i])
+    idx <- which(cut_fvc == levels(cut_fvc)[i])
     table1 <- as.data.frame(table(values_TS_TA[idx])) %>%
       dplyr::rename(TS_TA = Var1)
     table1$TS_TA <- as.numeric(levels(table1$TS_TA))
@@ -105,14 +111,12 @@ calculate_EF <- function(FVC_path, TS_TA_path,output_path, n_intervals = 20, per
     tab <- dplyr::bind_cols(table1, pourcentages_df)
 
     mean_lower <- tab %>%
-      dplyr::filter(tab$Pourcentage <= percentile) %>%
+      dplyr::filter(Pourcentage <= percentile) %>%
       dplyr::summarise(mean_lower = weighted.mean(TS_TA, Freq, na.rm = TRUE))
 
-
     mean_upper <- tab %>%
-      dplyr::filter(tab$Pourcentage >= (1 - percentile)) %>%
+      dplyr::filter(Pourcentage >= (1 - percentile)) %>%
       dplyr::summarise(mean_upper = weighted.mean(TS_TA, Freq, na.rm = TRUE))
-
 
     R1[ligne, "Interval"] <- i
     R1[ligne, "Ts_wet"] <- mean_lower
@@ -126,8 +130,8 @@ calculate_EF <- function(FVC_path, TS_TA_path,output_path, n_intervals = 20, per
     dplyr::mutate(FVC = seq(0.025, 0.975, length.out = n_intervals))
 
   # Step 4: Deletion of the values from the first 2 rows of the table tab_wet_dry_fvc when FVC is close to 0 (no vegetation)
-  tab_wet_dry_fvc[1,c(2,3)]<-NA
-  tab_wet_dry_fvc[2,c(2,3)]<-NA
+  tab_wet_dry_fvc[1, c(2, 3)] <- NA
+  tab_wet_dry_fvc[2, c(2, 3)] <- NA
   tab_wet_dry_fvc
 
   # Step 5: Fit regression models for wet and dry edges using stats::lm
@@ -141,10 +145,7 @@ calculate_EF <- function(FVC_path, TS_TA_path,output_path, n_intervals = 20, per
   b_dry <- stats::coef(reg_dry)[1]
 
   # Step 6: Calculate the EF raster
-
- EF<-(((a_dry * FVC) + b_dry)-TS_TA)/(((a_dry * FVC) + b_dry)-((a_wet * FVC) + b_wet))
-
-
+  EF <- (((a_dry * FVC) + b_dry) - TS_TA) / (((a_dry * FVC) + b_dry) - ((a_wet * FVC) + b_wet))
 
   # Clip EF values to [0, 1]
   EF[EF > 1] <- 1
@@ -156,11 +157,11 @@ calculate_EF <- function(FVC_path, TS_TA_path,output_path, n_intervals = 20, per
   terra::writeRaster(EF, output_path, overwrite = TRUE)
 
   # Plot the result
-
-  terra::plot(EF,main = "EF (Evaporative Fraction)")
+  terra::plot(EF, main = "EF (Evaporative Fraction)")
 
   return(EF)
 }
+
 
 
 

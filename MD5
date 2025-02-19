@@ -1,8 +1,9 @@
-54deb91ee0113ec9554aee294aa8bc1a *DESCRIPTION
+c5b6c6adf5ad16a14ca6ae4e0a56fa0c *DESCRIPTION
 6d8ffc36d9e9e4bfa2fb4b0624707a02 *NAMESPACE
-9edbc622d597269459abbd6bb6e08540 *R/calculate_EF.R
-622682e59b96a4720e23ee52353000d0 *R/calculate_WDI.R
-ef19f1ed5463c8da01b7c14f70d37c11 *R/zzz.R
+09885b8f51497d495d570e348f93fcbb *NEWS.md
+620e619d22cc077421f94b1693031a5e *R/calculate_EF.R
+8a355c98ee37baeecd1dbae44c5fe5d0 *R/calculate_WDI.R
+706ddc30c27edd790845cf8d43a81d78 *R/zzz.R
 3f33bf8ee87098cbd96cd7f03a246789 *README.md
 f05060ec69284a221af55947af8e380e *inst/cran-comments.md
 3f6fdb72b9321e2fd21cfe64630e6e9b *inst/extdata/FVC_reduced.tif
